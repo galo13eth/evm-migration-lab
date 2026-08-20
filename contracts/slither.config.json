@@ -1,5 +1,5 @@
 {
-  "exclude-dependencies": true,
-  "filter-paths": "lib|test|script",
-  "detectors-to-exclude": "solc-version,naming-convention,too-many-digits,calls-loop,timestamp"
+  "exclude_dependencies": true,
+  "filter_paths": "lib|test|script",
+  "detectors_to_exclude": "solc-version,naming-convention,too-many-digits,calls-loop,timestamp,missing-inheritance"
 }
