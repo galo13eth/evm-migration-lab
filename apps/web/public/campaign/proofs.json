@@ -1,0 +1,61 @@
+{
+  "root": "0x4a9bea74b0e16a8ecdeb082f41e6f7a505f6579ef0440f1d90fd270b7db4aeea",
+  "singleProofs": [
+    {
+      "leafIndex": 0,
+      "proof": [
+        "0x9f9d055ed0f162036e0f0335bd9868595900f98c91e44eaa5fd680d2f4a6d296",
+        "0x69073cfa63812fe16ba4afa2cd2af9c00c3b6168e52e39440490d4592126b690"
+      ]
+    },
+    {
+      "leafIndex": 1,
+      "proof": [
+        "0x1d1bcbdcd58acee89477e1e16ae8432c38438137cb69f0b13d1861a89d922499",
+        "0xc55c258c487a2ce16fd3b8c723c74a1431c705583b7c7b1db2c5ab79102a2e72"
+      ]
+    },
+    {
+      "leafIndex": 2,
+      "proof": [
+        "0x9a72ae776be94621d7e33d3fbb1db9cc3d446de8fd10995a466d65f7a9ec279a",
+        "0x69073cfa63812fe16ba4afa2cd2af9c00c3b6168e52e39440490d4592126b690"
+      ]
+    },
+    {
+      "leafIndex": 3,
+      "proof": [
+        "0x6ef281f97dcbabc94b45a3593a83943e0a853294404be628f4e806817b8e78f6",
+        "0xc55c258c487a2ce16fd3b8c723c74a1431c705583b7c7b1db2c5ab79102a2e72"
+      ]
+    }
+  ],
+  "ownerMultiProofs": [
+    {
+      "sourceOwner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+      "leafIndices": [0, 2],
+      "proof": [
+        "0x69073cfa63812fe16ba4afa2cd2af9c00c3b6168e52e39440490d4592126b690"
+      ],
+      "proofFlags": [true, false]
+    },
+    {
+      "sourceOwner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "leafIndices": [1],
+      "proof": [
+        "0x1d1bcbdcd58acee89477e1e16ae8432c38438137cb69f0b13d1861a89d922499",
+        "0xc55c258c487a2ce16fd3b8c723c74a1431c705583b7c7b1db2c5ab79102a2e72"
+      ],
+      "proofFlags": [false, false]
+    },
+    {
+      "sourceOwner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
+      "leafIndices": [3],
+      "proof": [
+        "0x6ef281f97dcbabc94b45a3593a83943e0a853294404be628f4e806817b8e78f6",
+        "0xc55c258c487a2ce16fd3b8c723c74a1431c705583b7c7b1db2c5ab79102a2e72"
+      ],
+      "proofFlags": [false, false]
+    }
+  ]
+}
