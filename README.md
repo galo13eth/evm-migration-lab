@@ -110,6 +110,8 @@ Representative committed gas measurements are in [`contracts/.gas-snapshot`](con
 
 The UI supports network guarding, per-wallet eligibility and bitmap status, single and owner-multiproof claims, EIP-712 signing, pasted-payload relaying, and live manifest-versus-claim reconciliation. It always displays the late-transfer and trust warning.
 
+[Open the live artifact preview](https://web-production-fab71.up.railway.app/).
+
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 npm ci --prefix apps/web
