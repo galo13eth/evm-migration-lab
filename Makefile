@@ -8,8 +8,8 @@ setup: setup-contracts
 	$(CARGO) fetch --locked
 
 setup-contracts:
-	test -d contracts/lib/forge-std || forge install --root contracts foundry-rs/forge-std@v1.9.7 --no-git
-	test -d contracts/lib/openzeppelin-contracts || forge install --root contracts OpenZeppelin/openzeppelin-contracts@v5.4.0 --no-git
+	if [ ! -d contracts/lib/forge-std ]; then cd contracts && forge install foundry-rs/forge-std@v1.9.7 --no-git; fi
+	if [ ! -d contracts/lib/openzeppelin-contracts ]; then cd contracts && forge install OpenZeppelin/openzeppelin-contracts@v5.4.0 --no-git; fi
 
 contracts: setup-contracts
 	cd contracts && forge fmt --check && forge build && forge test -vv && forge snapshot --check --fuzz-seed 0xc0ffee
