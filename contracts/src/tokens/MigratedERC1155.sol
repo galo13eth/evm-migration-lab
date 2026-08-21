@@ -8,12 +8,15 @@ import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 contract MigratedERC1155 is ERC1155, Ownable2Step {
     error InvalidMinter();
     error MinterAlreadyLocked();
+    error MetadataAlreadyFrozen();
     error OnlyMinter(address caller);
 
     event MinterLocked(address indexed minter);
+    event MetadataFrozen();
 
     address public minter;
     bool public minterLocked;
+    bool public metadataFrozen;
 
     constructor(string memory uri_, address owner_) ERC1155(uri_) Ownable(owner_) { }
 
@@ -26,7 +29,14 @@ contract MigratedERC1155 is ERC1155, Ownable2Step {
     }
 
     function setBaseURI(string calldata uri_) external onlyOwner {
+        if (metadataFrozen) revert MetadataAlreadyFrozen();
         _setURI(uri_);
+    }
+
+    function freezeMetadata() external onlyOwner {
+        if (metadataFrozen) revert MetadataAlreadyFrozen();
+        metadataFrozen = true;
+        emit MetadataFrozen();
     }
 
     function mint(address to, uint256 tokenId, uint256 amount) external {

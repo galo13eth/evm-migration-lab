@@ -8,12 +8,15 @@ import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 contract MigratedERC721 is ERC721, Ownable2Step {
     error InvalidMinter();
     error MinterAlreadyLocked();
+    error MetadataAlreadyFrozen();
     error OnlyMinter(address caller);
 
     event MinterLocked(address indexed minter);
+    event MetadataFrozen();
 
     address public minter;
     bool public minterLocked;
+    bool public metadataFrozen;
     string private _baseTokenURI;
 
     constructor(string memory name_, string memory symbol_, string memory baseURI_, address owner_)
@@ -32,12 +35,19 @@ contract MigratedERC721 is ERC721, Ownable2Step {
     }
 
     function setBaseURI(string calldata baseURI_) external onlyOwner {
+        if (metadataFrozen) revert MetadataAlreadyFrozen();
         _baseTokenURI = baseURI_;
+    }
+
+    function freezeMetadata() external onlyOwner {
+        if (metadataFrozen) revert MetadataAlreadyFrozen();
+        metadataFrozen = true;
+        emit MetadataFrozen();
     }
 
     function mint(address to, uint256 tokenId) external {
         if (msg.sender != minter) revert OnlyMinter(msg.sender);
-        _safeMint(to, tokenId);
+        _mint(to, tokenId);
     }
 
     function _baseURI() internal view override returns (string memory) {
