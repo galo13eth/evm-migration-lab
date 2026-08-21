@@ -1,8 +1,13 @@
 {
-  "snapshotBlock": 4,
-  "manifestEntries": 4,
-  "merkleRoot": "0x4a9bea74b0e16a8ecdeb082f41e6f7a505f6579ef0440f1d90fd270b7db4aeea",
-  "claimsCompleted": 2,
-  "reconciliationStatus": "consistent",
-  "lastVerifiedCommit": "57b11e491a5a359aa7c14f9d92cd05a1c256f85b"
+  "environment": "local-e2e",
+  "chainId": "31338",
+  "live": false,
+  "generatedAt": "1787279368",
+  "snapshotBlock": "5",
+  "snapshotBlockHash": "0xbab818293d3924f32d9ded41f2747c4829cbc68b636abb03565993826b9a289b",
+  "manifestEntries": "4",
+  "merkleRoot": "0xc71292e79955cefbfddfd8d75f268565561f199c93c63e0dd349125bfda758f7",
+  "claimsCompleted": "2",
+  "reconciliationStatus": "sample-consistent",
+  "lastVerifiedCommit": "local-e2e"
 }

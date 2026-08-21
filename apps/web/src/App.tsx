@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BaseError, ContractFunctionRevertedError } from "viem";
 import {
   useAccount,
   useChainId,
@@ -20,6 +21,7 @@ import {
   type RelayPayload,
 } from "./campaign";
 import { campaignReady, claimAddress, targetChain } from "./config";
+import { useCampaignIntegrity, type IntegrityCheck } from "./useCampaignIntegrity";
 
 type Tab = "claim" | "delegate" | "relay" | "audit";
 
@@ -33,7 +35,7 @@ const WalletButton = lazy(() => import("./WalletButton"));
 
 export function App() {
   const [tab, setTab] = useState<Tab>("claim");
-  const [selectedLeaf, setSelectedLeaf] = useState<number | null>(null);
+  const [selectedLeaf, setSelectedLeaf] = useState<string | null>(null);
   const [signedPayload, setSignedPayload] = useState("");
   const [relayInput, setRelayInput] = useState("");
   const [message, setMessage] = useState("");
@@ -42,9 +44,10 @@ export function App() {
   const { switchChain } = useSwitchChain();
   const queryClient = useQueryClient();
   const campaign = useQuery({ queryKey: ["campaign"], queryFn: loadCampaign });
+  const integrity = useCampaignIntegrity(campaign.data);
   const entries = campaign.data?.manifest.entries ?? [];
   const eligible = useMemo(
-    () => entries.filter((entry) => entry.sourceOwner.toLowerCase() === address?.toLowerCase()),
+    () => entries.filter((entry) => entry.claimAuthority.toLowerCase() === address?.toLowerCase()),
     [address, entries],
   );
   const selected = eligible.find((entry) => entry.leafIndex === selectedLeaf) ?? eligible[0];
@@ -55,14 +58,14 @@ export function App() {
       address: claimAddress,
       abi: migrationClaimAbi,
       functionName: "isClaimed" as const,
-      args: [1n, BigInt(entry.leafIndex)] as const,
+      args: [BigInt(entry.leafIndex)] as const,
       chainId: targetChain.id,
     })),
     query: { enabled: campaignReady && onTargetChain && eligible.length > 0 },
   });
   const claimedByLeaf = useMemo(
     () =>
-      new Map(
+      new Map<string, boolean>(
         eligible.map((entry, index) => [entry.leafIndex, claimedReads.data?.[index]?.result === true]),
       ),
     [claimedReads.data, eligible],
@@ -93,6 +96,14 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["campaign"] });
   }, [receipt.isSuccess]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setSignedPayload("");
+  }, [address, chainId, integrity.root, integrity.rootVersion]);
+
+  useEffect(() => {
+    if (receipt.isError) setMessage(errorMessage(receipt.error));
+  }, [receipt.error, receipt.isError]);
+
   const proofFor = (entry: ManifestEntry) =>
     campaign.data?.proofs.singleProofs.find((proof) => proof.leafIndex === entry.leafIndex);
 
@@ -116,7 +127,7 @@ export function App() {
   async function claimBatch() {
     if (!campaign.data || !address) return;
     const multiproof = campaign.data.proofs.ownerMultiProofs.find(
-      (proof) => proof.sourceOwner.toLowerCase() === address.toLowerCase(),
+      (proof) => proof.claimAuthority.toLowerCase() === address.toLowerCase(),
     );
     if (!multiproof) return setMessage("Multiproof not found for this owner.");
     const ordered = multiproof.leafIndices.map((leafIndex) => {
@@ -140,21 +151,25 @@ export function App() {
 
   async function signDelegated(entry: ManifestEntry) {
     const proof = proofFor(entry);
-    if (!proof || nonce.data === undefined) return setMessage("Proof or nonce is unavailable.");
+    if (!proof || nonce.data === undefined || !integrity.root || integrity.rootVersion === undefined) {
+      return setMessage("Verified proof, root, version, or nonce is unavailable.");
+    }
     const deadline = BigInt(Math.floor(Date.now() / 1_000) + 3_600);
     setMessage("");
     try {
       const signature = await signer.signTypedDataAsync({
         domain: {
           name: "EVM Migration Claim",
-          version: "1",
+          version: "2",
           chainId: targetChain.id,
           verifyingContract: claimAddress,
         },
         types: {
           DelegatedClaim: [
             { name: "leafHash", type: "bytes32" },
-            { name: "recipient", type: "address" },
+            { name: "merkleRoot", type: "bytes32" },
+            { name: "rootVersion", type: "uint64" },
+            { name: "destinationRecipient", type: "address" },
             { name: "nonce", type: "uint256" },
             { name: "deadline", type: "uint256" },
           ],
@@ -162,7 +177,9 @@ export function App() {
         primaryType: "DelegatedClaim",
         message: {
           leafHash: entry.leafHash,
-          recipient: entry.destinationRecipient,
+          merkleRoot: integrity.root,
+          rootVersion: integrity.rootVersion,
+          destinationRecipient: entry.destinationRecipient,
           nonce: nonce.data,
           deadline,
         },
@@ -177,6 +194,8 @@ export function App() {
               leafIndex: String(entry.leafIndex),
             },
             proof: proof.proof,
+            merkleRoot: integrity.root,
+            rootVersion: integrity.rootVersion.toString(),
             nonce: nonce.data.toString(),
             deadline: deadline.toString(),
             signature,
@@ -223,7 +242,13 @@ export function App() {
       ? "Transaction pending"
       : receipt.isSuccess
         ? "Confirmed on-chain"
-        : "Ready";
+        : receipt.isError
+          ? "Transaction reverted"
+          : campaignReady
+            ? "Ready"
+            : "Preview only";
+  const actionsDisabled = !campaignReady || !onTargetChain || !integrity.integrityOk
+    || !integrity.claimOpen;
 
   return (
     <div className="site-shell">
@@ -259,13 +284,16 @@ export function App() {
         </section>
 
         {!campaignReady ? (
-          <div className="setup-banner">Artifact preview mode — set <code>VITE_CLAIM_ADDRESS</code> after deployment to enable chain actions.</div>
+          <div className="setup-banner local-demo"><strong>LOCAL ARTIFACT DEMO</strong><span>No testnet claim contract configured. Chain actions are disabled.</span></div>
         ) : null}
         {isConnected && !onTargetChain ? (
           <div className="network-guard">
             <span>Wrong network. Claims execute only on {targetChain.name}.</span>
             <button onClick={() => switchChain({ chainId: targetChain.id })}>Switch network</button>
           </div>
+        ) : null}
+        {campaignReady && campaign.data && !integrity.loading && !integrity.integrityOk ? (
+          <div className="integrity-warning" role="alert"><strong>Integrity check failed.</strong><span>Artifacts remain readable, but every claim and signing action is disabled.</span></div>
         ) : null}
 
         <section className="workspace stagger-4">
@@ -289,27 +317,28 @@ export function App() {
                 setSelectedLeaf={setSelectedLeaf}
                 claimOne={claimOne}
                 claimBatch={claimBatch}
-                disabled={!campaignReady || !onTargetChain || transaction.isPending || receipt.isLoading}
+                disabled={actionsDisabled || transaction.isPending || receipt.isLoading}
               />
             ) : null}
             {campaign.data && tab === "delegate" ? (
-              <DelegatePanel entry={selected} payload={signedPayload} onSign={signDelegated} disabled={!campaignReady || !onTargetChain || signer.isPending} />
+              <DelegatePanel entry={selected} payload={signedPayload} onSign={signDelegated} disabled={actionsDisabled || signer.isPending} />
             ) : null}
             {campaign.data && tab === "relay" ? (
-              <RelayPanel value={relayInput} setValue={setRelayInput} onRelay={relay} disabled={!campaignReady || !onTargetChain || !relayInput || transaction.isPending} />
+              <RelayPanel value={relayInput} setValue={setRelayInput} onRelay={relay} disabled={actionsDisabled || !isConnected || !relayInput || transaction.isPending} />
             ) : null}
             {campaign.data && tab === "audit" ? (
-              <AuditPanel manifestEntries={campaign.data.manifest.entries.length} claimed={claimedCount.data ?? BigInt(campaign.data.status.claimsCompleted)} status={campaign.data.status.reconciliationStatus} commit={campaign.data.status.lastVerifiedCommit} />
+              <AuditPanel manifestEntries={campaign.data.manifest.entries.length} claimed={claimedCount.data ?? BigInt(campaign.data.status.claimsCompleted)} status={campaign.data.status.reconciliationStatus} commit={campaign.data.status.lastVerifiedCommit} checks={integrity.checks} rootVersion={integrity.rootVersion} paused={integrity.paused} />
             ) : null}
-            <div className="tx-status" role="status" aria-live="polite"><span className={`status-light ${receipt.isSuccess ? "success" : ""}`} />{message || lifecycle}</div>
+            <div className="tx-status" role="status" aria-live="polite"><span className={`status-light ${receipt.isSuccess ? "success" : receipt.isError ? "error" : ""}`} />{message || lifecycle}{transaction.data ? <a href={`${targetChain.blockExplorers?.default.url}/tx/${transaction.data}`} target="_blank" rel="noreferrer">View transaction ↗</a> : null}</div>
           </div>
 
           <aside className="audit-rail">
             <p className="rail-label">Campaign commitment</p>
-            <Metric label="Snapshot block" value={campaign.data?.manifest.campaign.snapshotBlock.toLocaleString() ?? "—"} />
+            <Metric label="Snapshot block" value={campaign.data?.manifest.campaign.snapshotBlock ?? "—"} />
             <Metric label="Manifest entries" value={campaign.data?.manifest.entries.length.toLocaleString() ?? "—"} />
             <Metric label="Claimed live" value={claimedCount.data?.toString() ?? "—"} />
             <div className="root-block"><span>Merkle root</span><code>{shortHash(campaign.data?.proofs.root)}</code></div>
+            <div className="root-block"><span>Root version</span><code>{integrity.rootVersion?.toString() ?? "—"}</code></div>
             <div className="policy-note"><span>Late transfers</span><strong>Not eligible</strong><p>Ownership is final at the published snapshot block.</p></div>
           </aside>
         </section>
@@ -323,14 +352,14 @@ export function App() {
 function ClaimPanel({ isConnected, eligible, claimedByLeaf, selectedLeaf, setSelectedLeaf, claimOne, claimBatch, disabled }: {
   isConnected: boolean;
   eligible: ManifestEntry[];
-  claimedByLeaf: Map<number, boolean>;
-  selectedLeaf: number | null;
-  setSelectedLeaf: (leaf: number) => void;
+  claimedByLeaf: Map<string, boolean>;
+  selectedLeaf: string | null;
+  setSelectedLeaf: (leaf: string) => void;
   claimOne: (entry: ManifestEntry) => void;
   claimBatch: () => void;
   disabled: boolean;
 }) {
-  if (!isConnected) return <PanelState title="Connect to inspect eligibility" detail="Your address is matched locally against the published manifest." />;
+  if (!isConnected) return <PanelState title="Connect to inspect eligibility" detail="Your address is matched locally against the committed claim authority." />;
   if (!eligible.length) return <PanelState title="No snapshot holdings" detail="This address has no entries in the committed source snapshot." />;
   const selected = eligible.find((entry) => entry.leafIndex === selectedLeaf) ?? eligible[0]!;
   const batchAvailable = eligible.length > 1 && eligible.every((entry) => !claimedByLeaf.get(entry.leafIndex));
@@ -352,7 +381,7 @@ function ClaimPanel({ isConnected, eligible, claimedByLeaf, selectedLeaf, setSel
 
 function DelegatePanel({ entry, payload, onSign, disabled }: { entry?: ManifestEntry; payload: string; onSign: (entry: ManifestEntry) => void; disabled: boolean }) {
   return <div className="panel-content"><PanelHeading index="02" title="Sign, then relay" detail="Authorize one fixed recipient without giving a relayer custody or redirect power." />
-    {entry ? <div className="delegation-card"><div><span>Leaf</span><code>{entry.leafIndex}</code></div><div><span>Recipient</span><code>{shortHash(entry.destinationRecipient)}</code></div><div><span>Expires</span><code>+60 minutes</code></div></div> : <p className="empty-copy">Connect an eligible source owner first.</p>}
+    {entry ? <div className="delegation-card"><div><span>Leaf</span><code>{entry.leafIndex}</code></div><div className="recipient-cell"><span>Destination recipient</span><code>{entry.destinationRecipient}</code></div><div><span>Expires</span><code>+60 minutes</code></div></div> : <p className="empty-copy">Connect an eligible claim authority first.</p>}
     <button className="primary-button" disabled={disabled || !entry} onClick={() => entry && onSign(entry)}>Sign EIP-712 authorization <span>↗</span></button>
     {payload ? <><label className="field-label" htmlFor="signed-payload">Signed relay payload</label><textarea id="signed-payload" className="code-field" readOnly value={payload} /></> : null}
   </div>;
@@ -365,17 +394,39 @@ function RelayPanel({ value, setValue, onRelay, disabled }: { value: string; set
   </div>;
 }
 
-function AuditPanel({ manifestEntries, claimed, status, commit }: { manifestEntries: number; claimed: bigint; status: string; commit: string }) {
+function AuditPanel({ manifestEntries, claimed, status, commit, checks, rootVersion, paused }: { manifestEntries: number; claimed: bigint; status: string; commit: string; checks: IntegrityCheck[]; rootVersion?: bigint; paused?: boolean }) {
   const percent = manifestEntries ? Math.min(100, Number((claimed * 10_000n) / BigInt(manifestEntries)) / 100) : 0;
   return <div className="panel-content"><PanelHeading index="04" title="Reconciliation" detail="Static snapshot totals beside live destination claim state." />
     <div className="reconcile-grid"><Metric label="Manifest" value={manifestEntries.toLocaleString()} /><Metric label="Claimed" value={claimed.toString()} /><Metric label="Coverage" value={`${percent.toFixed(1)}%`} /></div>
     <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
-    <dl className="audit-list"><div><dt>Snapshot verification</dt><dd className="good">{status}</dd></div><div><dt>Last verified commit</dt><dd><code>{shortHash(commit)}</code></dd></div><div><dt>Data source</dt><dd>Static artifacts + chain reads</dd></div></dl>
+    <dl className="audit-list"><div><dt>Snapshot verification</dt><dd className="good">{status}</dd></div><div><dt>Root version</dt><dd><code>{rootVersion?.toString() ?? "—"}</code></dd></div><div><dt>Campaign pause</dt><dd className={paused === false ? "good" : "bad"}>{paused === undefined ? "unknown" : paused ? "paused" : "not paused"}</dd></div><div><dt>Last verified commit</dt><dd><code>{shortHash(commit)}</code></dd></div><div><dt>Data source</dt><dd>Static artifacts + chain reads</dd></div></dl>
+    <h3 className="integrity-title">Campaign integrity</h3>
+    <IntegrityChecks checks={checks} />
   </div>;
 }
 
 function PanelHeading({ index, title, detail }: { index: string; title: string; detail: string }) { return <div className="panel-heading"><span>{index}</span><div><h2>{title}</h2><p>{detail}</p></div></div>; }
 function PanelState({ title, detail }: { title: string; detail: string }) { return <div className="panel-state"><span className="loader-mark">M/</span><h2>{title}</h2><p>{detail}</p></div>; }
 function Metric({ label, value }: { label: string; value: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
+export function IntegrityChecks({ checks }: { checks: IntegrityCheck[] }) { return <ul className="integrity-list">{checks.map((check) => <li key={check.label} className={check.ok ? "ok" : "failed"}><span aria-hidden="true">{check.ok ? "✓" : "×"}</span><strong>{check.label}</strong><code>{check.detail}</code></li>)}</ul>; }
 function shortHash(value?: string) { return value && value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value ?? "—"; }
-function errorMessage(error: unknown) { return error instanceof Error ? error.message.split("\n")[0] : "Unexpected operation failure"; }
+function errorMessage(error: unknown) {
+  if (error instanceof BaseError) {
+    const reverted = error.walk((cause) => cause instanceof ContractFunctionRevertedError);
+    if (reverted instanceof ContractFunctionRevertedError && reverted.data?.errorName) {
+      const messages: Record<string, string> = {
+        AlreadyClaimed: "This entitlement is already claimed.",
+        ClaimWindowClosed: "The claim window is not open.",
+        ExpiredSignature: "The delegated signature has expired.",
+        InvalidNonce: "The delegated signature nonce is stale.",
+        InvalidProof: "The published proof does not match the onchain root.",
+        InvalidSignature: "The delegated signature is invalid.",
+        UnauthorizedClaimAuthority: "The connected wallet is not this leaf's claim authority.",
+        EnforcedPause: "Claims are paused by the campaign administrator.",
+      };
+      return messages[reverted.data.errorName] ?? `Contract rejected the request: ${reverted.data.errorName}`;
+    }
+    return error.shortMessage;
+  }
+  return error instanceof Error ? error.message.split("\n")[0] : "Unexpected operation failure";
+}

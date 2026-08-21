@@ -11,6 +11,12 @@ export const targetChain = defineChain({
   name: import.meta.env.VITE_CHAIN_NAME || "Base Sepolia",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpcUrl] } },
+  blockExplorers: {
+    default: {
+      name: import.meta.env.VITE_EXPLORER_NAME || "BaseScan",
+      url: import.meta.env.VITE_EXPLORER_URL || "https://sepolia.basescan.org",
+    },
+  },
   testnet: true,
 });
 
