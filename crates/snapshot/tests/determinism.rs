@@ -47,7 +47,9 @@ fn fixture_produces_byte_identical_manifest_and_root() {
         address!("0000000000000000000000000000000000000010"),
         4,
         b256!("2222222222222222222222222222222222222222222222222222222222222222"),
+        31_338,
         2,
+        "confirmations:0".into(),
     );
     let entries = holdings
         .into_iter()
@@ -57,13 +59,14 @@ fn fixture_produces_byte_identical_manifest_and_root() {
             token_id: holding.token_id.to_string(),
             amount: holding.amount.to_string(),
             source_owner: address_hex(holding.owner),
+            claim_authority: address_hex(holding.owner),
             destination_recipient: address_hex(holding.owner),
             leaf_index: index as u64,
             leaf_hash: String::new(),
         })
         .collect();
     let manifest = Manifest {
-        format: "evm-migration-manifest-v1".into(),
+        format: "evm-migration-manifest-v2".into(),
         campaign,
         entries,
     };

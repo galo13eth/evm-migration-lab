@@ -15,6 +15,28 @@ pub enum TokenStandard {
     Erc1155,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum FinalityPolicy {
+    Confirmations,
+    SafeBlockTag,
+    FinalizedBlockTag,
+    ManualReviewed,
+    L2Finalized,
+}
+
+impl fmt::Display for FinalityPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Confirmations => f.write_str("confirmations"),
+            Self::SafeBlockTag => f.write_str("safe-block-tag"),
+            Self::FinalizedBlockTag => f.write_str("finalized-block-tag"),
+            Self::ManualReviewed => f.write_str("manual-reviewed"),
+            Self::L2Finalized => f.write_str("l2-finalized"),
+        }
+    }
+}
+
 impl TokenStandard {
     pub const fn code(self) -> u8 {
         match self {
@@ -70,6 +92,8 @@ pub struct CheckpointConfig {
     pub snapshot_block: u64,
     pub snapshot_block_hash: B256,
     pub chunk_size: u64,
+    pub finality_policy: FinalityPolicy,
+    pub confirmations: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -84,11 +108,16 @@ pub struct Checkpoint {
 #[serde(rename_all = "camelCase")]
 pub struct Campaign {
     pub migration_id: String,
+    #[serde(with = "decimal_u64")]
     pub source_chain_id: u64,
     pub source_contract: String,
+    #[serde(with = "decimal_u64")]
     pub snapshot_block: u64,
     pub snapshot_block_hash: String,
+    #[serde(with = "decimal_u64")]
+    pub destination_chain_id: u64,
     pub standard: u8,
+    pub finality_policy: String,
     pub leaf_encoding: Vec<String>,
 }
 
@@ -99,7 +128,9 @@ pub struct ManifestEntry {
     pub token_id: String,
     pub amount: String,
     pub source_owner: String,
+    pub claim_authority: String,
     pub destination_recipient: String,
+    #[serde(with = "decimal_u64")]
     pub leaf_index: u64,
     pub leaf_hash: String,
 }
@@ -124,6 +155,11 @@ impl ManifestEntry {
         Address::from_str(&self.destination_recipient)
             .map_err(|error| SnapshotError::Config(format!("invalid recipient: {error}")))
     }
+
+    pub fn claim_authority_address(&self) -> Result<Address> {
+        Address::from_str(&self.claim_authority)
+            .map_err(|error| SnapshotError::Config(format!("invalid claim authority: {error}")))
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -136,6 +172,7 @@ pub struct Manifest {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SingleProof {
+    #[serde(with = "decimal_u64")]
     pub leaf_index: u64,
     pub proof: Vec<String>,
 }
@@ -143,7 +180,8 @@ pub struct SingleProof {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OwnerMultiProof {
-    pub source_owner: String,
+    pub claim_authority: String,
+    #[serde(with = "decimal_u64_vec")]
     pub leaf_indices: Vec<u64>,
     pub proof: Vec<String>,
     pub proof_flags: Vec<bool>,
@@ -160,30 +198,71 @@ pub struct ProofBundle {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReconciliationSample {
+    #[serde(with = "decimal_u64")]
     pub leaf_index: u64,
     pub expected: String,
     pub actual: String,
     pub consistent: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reconciliation {
+    #[serde(with = "decimal_u64")]
     pub snapshot_block: u64,
     pub snapshot_block_hash: String,
     pub samples: Vec<ReconciliationSample>,
     pub status: String,
+    #[serde(with = "decimal_usize")]
+    pub sampled_entries: usize,
+    #[serde(with = "decimal_usize")]
+    pub manifest_entries: usize,
+    #[serde(with = "decimal_f64")]
+    pub sample_coverage: f64,
+    pub sample_seed: String,
+    pub providers_compared: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusArtifact {
+    pub environment: String,
+    #[serde(with = "decimal_u64")]
+    pub chain_id: u64,
+    pub live: bool,
+    #[serde(with = "decimal_u64")]
+    pub generated_at: u64,
+    #[serde(with = "decimal_u64")]
     pub snapshot_block: u64,
+    pub snapshot_block_hash: String,
+    #[serde(with = "decimal_usize")]
     pub manifest_entries: usize,
     pub merkle_root: String,
+    #[serde(with = "decimal_u64")]
     pub claims_completed: u64,
     pub reconciliation_status: String,
     pub last_verified_commit: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactDigests {
+    pub format: String,
+    pub files: BTreeMap<String, String>,
+    pub bundle_digest: String,
+    pub cli_version: String,
+    pub verified_commit: String,
+    #[serde(with = "decimal_u64")]
+    pub source_block: u64,
+    pub source_block_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CurrentBundle {
+    pub format: String,
+    pub merkle_root: String,
+    pub path: String,
 }
 
 pub fn address_hex(address: Address) -> String {
@@ -192,4 +271,65 @@ pub fn address_hex(address: Address) -> String {
 
 pub fn b256_hex(value: B256) -> String {
     format!("{value:#x}")
+}
+
+mod decimal_u64 {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+mod decimal_usize {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(value: &usize, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<usize, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+mod decimal_u64_vec {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer>(values: &[u64], serializer: S) -> Result<S::Ok, S::Error> {
+        values
+            .iter()
+            .map(u64::to_string)
+            .collect::<Vec<_>>()
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u64>, D::Error> {
+        Vec::<String>::deserialize(deserializer)?
+            .into_iter()
+            .map(|value| value.parse().map_err(serde::de::Error::custom))
+            .collect()
+    }
+}
+
+mod decimal_f64 {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&format!("{value:.8}"))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
 }

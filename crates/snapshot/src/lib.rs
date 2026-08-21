@@ -1,4 +1,7 @@
+#![forbid(unsafe_code)]
+
 pub mod artifacts;
+pub mod authorization;
 pub mod error;
 pub mod merkle;
 pub mod model;

@@ -18,10 +18,13 @@ sol! {
         uint256 sourceChainId;
         address sourceContract;
         uint256 snapshotBlock;
+        bytes32 sourceBlockHash;
+        uint256 destinationChainId;
         uint8 standard;
         uint256 tokenId;
         uint256 amount;
         address sourceOwner;
+        address claimAuthority;
         address destinationRecipient;
         uint256 leafIndex;
     }
@@ -67,13 +70,13 @@ pub fn build(mut manifest: Manifest) -> Result<MerkleArtifacts> {
     let mut owner_groups = BTreeMap::<String, Vec<usize>>::new();
     for (index, entry) in manifest.entries.iter().enumerate() {
         owner_groups
-            .entry(entry.source_owner.clone())
+            .entry(entry.claim_authority.clone())
             .or_default()
             .push(index);
     }
     let owner_multi_proofs = owner_groups
         .into_iter()
-        .map(|(source_owner, indices)| {
+        .map(|(claim_authority, indices)| {
             let proof = tree
                 .multi_proof_by_indices(&indices)
                 .map_err(|error| SnapshotError::Merkle(error.to_string()))?;
@@ -87,7 +90,7 @@ pub fn build(mut manifest: Manifest) -> Result<MerkleArtifacts> {
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(OwnerMultiProof {
-                source_owner,
+                claim_authority,
                 leaf_indices,
                 proof: proof
                     .proof
@@ -117,23 +120,31 @@ pub fn inner_hash(campaign: &Campaign, entry: &ManifestEntry) -> Result<[u8; 32]
         sourceContract: Address::from_str(&campaign.source_contract)
             .map_err(|error| SnapshotError::Config(format!("invalid source contract: {error}")))?,
         snapshotBlock: U256::from(campaign.snapshot_block),
+        sourceBlockHash: B256::from_str(&campaign.snapshot_block_hash).map_err(|error| {
+            SnapshotError::Config(format!("invalid snapshot block hash: {error}"))
+        })?,
+        destinationChainId: U256::from(campaign.destination_chain_id),
         standard: entry.standard,
         tokenId: entry.token_id_u256()?,
         amount: entry.amount_u256()?,
         sourceOwner: entry.source_owner_address()?,
+        claimAuthority: entry.claim_authority_address()?,
         destinationRecipient: entry.recipient_address()?,
         leafIndex: U256::from(entry.leaf_index),
     };
     Ok(keccak256(value.abi_encode()).0)
 }
 
+#[allow(clippy::too_many_arguments)] // Mirrors the eight immutable campaign fields.
 pub fn campaign(
     migration_id: B256,
     source_chain_id: u64,
     source_contract: Address,
     snapshot_block: u64,
     snapshot_block_hash: B256,
+    destination_chain_id: u64,
     standard: u8,
+    finality_policy: String,
 ) -> Campaign {
     Campaign {
         migration_id: b256_hex(migration_id),
@@ -141,10 +152,12 @@ pub fn campaign(
         source_contract: address_hex(source_contract),
         snapshot_block,
         snapshot_block_hash: b256_hex(snapshot_block_hash),
+        destination_chain_id,
         standard,
+        finality_policy,
         leaf_encoding: [
-            "bytes32", "uint256", "address", "uint256", "uint8", "uint256", "uint256", "address",
-            "address", "uint256",
+            "bytes32", "uint256", "address", "uint256", "bytes32", "uint256", "uint8", "uint256",
+            "uint256", "address", "address", "address", "uint256",
         ]
         .into_iter()
         .map(str::to_owned)
@@ -166,7 +179,9 @@ mod tests {
             address!("0000000000000000000000000000000000000001"),
             10,
             b256!("2222222222222222222222222222222222222222222222222222222222222222"),
+            84532,
             1,
+            "confirmations:12".into(),
         );
         let entries = (0..4)
             .map(|index| ManifestEntry {
@@ -174,13 +189,14 @@ mod tests {
                 token_id: (index + 1).to_string(),
                 amount: "1".into(),
                 source_owner: "0x0000000000000000000000000000000000000002".into(),
+                claim_authority: "0x0000000000000000000000000000000000000002".into(),
                 destination_recipient: "0x0000000000000000000000000000000000000002".into(),
                 leaf_index: index,
                 leaf_hash: String::new(),
             })
             .collect();
         let manifest = Manifest {
-            format: "evm-migration-manifest-v1".into(),
+            format: "evm-migration-manifest-v2".into(),
             campaign,
             entries,
         };
