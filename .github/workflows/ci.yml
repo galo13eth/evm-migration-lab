@@ -121,6 +121,7 @@ jobs:
   rust-audit:
     runs-on: ubuntu-latest
     permissions:
+      checks: write
       contents: read
       issues: write
     steps:
