@@ -9,6 +9,8 @@ The design is grounded in lessons from a real Blast → Ronin migration: migrati
 
 > **This is not a trustless bridge.** A reviewed operator generates the manifest and a Safe/timelock administrator registers its Merkle root. The destination contract verifies claims against that commitment; it does not verify source-chain consensus.
 
+[![EVM Migration Lab claim and verification application](docs/assets/claim-app.png)](https://web-production-fab71.up.railway.app/)
+
 ## Pipeline
 
 ```mermaid
@@ -55,9 +57,17 @@ e2e/                Viem orchestration across two Anvil chains
 fixtures/           deterministic transfer histories
 docs/               architecture, threats, trust, and operator runbook
 status.json         portable portfolio status artifact
+SECURITY.md         private vulnerability-reporting policy
 ```
 
 No service is required at runtime. The web app ships the manifest/proofs as static JSON and reads claim state directly from the destination chain.
+
+## Start here when reviewing
+
+- [`MigrationClaimBase.sol`](contracts/src/MigrationClaimBase.sol) and the typed [`ERC721MigrationClaim`](contracts/src/ERC721MigrationClaim.sol) / [`ERC1155MigrationClaim`](contracts/src/ERC1155MigrationClaim.sol) contracts
+- [`rpc.rs`](crates/snapshot/src/rpc.rs) and source-chain [`authorization.rs`](crates/snapshot/src/authorization.rs)
+- [`pipeline.ts`](e2e/pipeline.ts), including the source-only ERC-1271 wallet case
+- [`threat-model.md`](docs/threat-model.md) and the operator [`migration-runbook.md`](docs/migration-runbook.md)
 
 ## Leaf and claim model
 
@@ -68,21 +78,26 @@ bytes32 migrationId
 uint256 sourceChainId
 address sourceContract
 uint256 snapshotBlock
-uint8   standard              # 1 = ERC-721, 2 = ERC-1155
+bytes32 sourceBlockHash
+uint256 destinationChainId
+uint8   standard              # immutable: 1 = ERC-721, 2 = ERC-1155
 uint256 tokenId
 uint256 amount
 address sourceOwner
+address claimAuthority
 address destinationRecipient
 uint256 leafIndex
 ```
 
-All campaign fields are reconstructed from contract immutables. The destination recipient is committed in the leaf, duplicate claims are blocked with a root-versioned bitmap, and claim timestamps are immutable.
+All campaign fields are reconstructed from contract immutables. Each campaign can mint exactly one standard through exactly one permanently locked destination token. The destination recipient is committed in the leaf and duplicate claims are blocked globally by leaf index. The claim window—not individual transaction timestamps—is immutable.
 
-- `claim`: source owner submits one proof.
-- `claimBatch`: source owner submits an OpenZeppelin-compatible multiproof; foreign-owner leaves revert the entire transaction.
-- `claimDelegated`: any relayer submits an EIP-712 authorization checked through `SignatureChecker`, so EOAs and ERC-1271 smart accounts such as Safe are supported.
+- `claim`: the committed destination `claimAuthority` submits one proof.
+- `claimBatch`: one authority submits an OpenZeppelin-compatible multiproof; foreign-authority leaves revert the entire transaction.
+- `claimDelegated`: any relayer submits a root/version-bound EIP-712 authorization checked through `SignatureChecker`.
 
-Root versions are monotonic, but each version has a fresh bitmap. This permits reviewed emergency corrections and also means the root administrator is trusted not to recreate already claimed supply.
+An EOA owner needs no mapping. A source-only contract wallet can sign a migration authorization on the source chain; the CLI validates ERC-1271 at the snapshot block and commits its destination authority. Destination delegated claims support EOAs and ERC-1271 accounts deployed and valid on the destination chain.
+
+Roots may be corrected only before `claimStart` and before any claim. Once launch begins, the root is permanently frozen; a post-launch incident requires a documented redeployment.
 
 ## Snapshot CLI
 
@@ -90,25 +105,39 @@ Root versions are monotonic, but each version has a fresh bitmap. This permits r
 cargo run --locked -p evm-snapshot -- --help
 ```
 
-The CLI backfills `Transfer`, `TransferSingle`, or `TransferBatch` logs with bounded Tokio concurrency; atomically checkpoints completed chunks; rejects changed settings or a changed snapshot hash on resume; reconstructs canonically sorted holdings; and generates deterministic JSON, OpenZeppelin-compatible single proofs/owner multiproofs, and a reconciliation report. Sampled `ownerOf`/`balanceOf` reads execute at the exact snapshot block. Any mismatch fails publication.
+The CLI backfills `Transfer`, `TransferSingle`, or `TransferBatch` logs with bounded Tokio concurrency; atomically checkpoints completed chunks; rejects changed settings or a changed snapshot hash on resume; reconstructs canonically sorted holdings; and generates deterministic JSON, OpenZeppelin-compatible single proofs/authority multiproofs, and a reconciliation report. Sampled `ownerOf`/`balanceOf` reads execute at the exact snapshot block. The boundary hash is checked before logs, after logs, and again after reconciliation. Any mismatch fails publication.
 
-Outputs are `manifest.json`, `proofs.json`, `root.txt`, `reconciliation.json`, `reconciliation.md`, `summary.md`, and `status.json`. The committed [status artifact](status.json) is intentionally static so a portfolio can render verified state without depending on an indexer.
+Successful outputs are published together under `output/runs/<bundle-digest>/`, terminated by `READY`, with `current.json` switched only after every file is complete. `artifact-digests.json` commits the reviewed manifest, proofs, root, reconciliation, and summary. Reconciliation is reported as `sample-consistent`, never as proof that an RPC omitted no holdings. The committed [status artifact](status.json) remains static so a portfolio can render state without an indexer.
+
+Generate the campaign independently through two archive providers, then gate publication on byte-identical committed artifacts:
+
+```bash
+./scripts/compare-snapshot-bundles.sh output-a/runs/<digest> output-b/runs/<digest>
+```
 
 ## Evidence
 
 | Layer | Automated evidence |
 | --- | --- |
 | Solidity | unit, 512-run fuzz, handler invariants, gas snapshot check |
-| Rust | unit, integration determinism, property tests, compile-checked Criterion benchmark |
-| Static analysis | Slither production-contract scan with documented triage |
+| Rust | unit, integration determinism, property tests, compile-checked Criterion benchmark, RustSec audit |
+| Static analysis | zero-finding Slither production-contract scan with source-scoped triage |
 | Pipeline | two-chain Anvil snapshot → reconcile → roots → direct/batch/delegated claims |
-| Web | strict TypeScript build, live chain reads, receipt-based status refresh |
+| Web | runtime artifact validation, leaf/proof verification, fail-closed chain checks, Vitest/RTL, Playwright, strict build |
 
 Representative committed gas measurements are in [`contracts/.gas-snapshot`](contracts/.gas-snapshot). CI raises fuzz/invariant depth beyond local defaults.
 
+| Claim operation | Gas |
+| --- | ---: |
+| Single ERC-1155 | 91,830 |
+| 5-leaf multiproof batch | 145,346 |
+| 20-leaf multiproof batch | 340,007 |
+| Delegated EOA | 119,928 |
+| Delegated ERC-1271 | 121,511 |
+
 ## Web application
 
-The UI supports network guarding, per-wallet eligibility and bitmap status, single and owner-multiproof claims, EIP-712 signing, pasted-payload relaying, and live manifest-versus-claim reconciliation. It always displays the late-transfer and trust warning.
+The UI validates static JSON at runtime, recomputes leaf hashes and proofs, reads every campaign commitment plus token/minter state, and disables claims/signing on any mismatch. It also supports network guarding, authority eligibility, single and multiproof claims, root/version-bound EIP-712 signing, connected-wallet relaying, decoded contract errors, explorer links, and live reconciliation.
 
 [Open the live artifact preview](https://web-production-fab71.up.railway.app/).
 
@@ -118,7 +147,7 @@ npm ci --prefix apps/web
 npm run dev --prefix apps/web
 ```
 
-The committed deployment is an artifact preview until verified testnet addresses replace the placeholders below. Chain actions activate when `VITE_CLAIM_ADDRESS` is set.
+The committed deployment is prominently labeled `LOCAL ARTIFACT DEMO` until verified testnet addresses replace the placeholders below. Chain actions activate only when `VITE_CLAIM_ADDRESS` is set and every artifact/onchain check passes.
 
 ## Trust, limitations, and operations
 
@@ -127,6 +156,8 @@ The committed deployment is an artifact preview until verified testnet addresses
 - [Trust assumptions](docs/trust-assumptions.md)
 - [Migration and Sepolia → Base Sepolia runbook](docs/migration-runbook.md)
 - [Slither triage](contracts/SLITHER_TRIAGE.md)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
 Non-standard tokens, trustless consensus verification, ongoing bridging, relayer infrastructure, mainnet deployment, and automatic recovery from a bad root are out of scope.
 

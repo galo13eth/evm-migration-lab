@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use clap::Parser;
 use evm_snapshot::{Result, rpc};
 use tracing_subscriber::EnvFilter;

@@ -7,8 +7,10 @@ import { fileURLToPath } from "node:url";
 import {
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
   http,
   keccak256,
+  toHex,
   toBytes,
   type Abi,
   type Address,
@@ -52,25 +54,36 @@ type ManifestEntry = {
   tokenId: string;
   amount: string;
   sourceOwner: Address;
+  claimAuthority: Address;
   destinationRecipient: Address;
-  leafIndex: number;
+  leafIndex: string;
   leafHash: Hex;
 };
 type Manifest = {
   campaign: {
     migrationId: Hex;
-    sourceChainId: number;
+    sourceChainId: string;
     sourceContract: Address;
-    snapshotBlock: number;
+    snapshotBlock: string;
+    snapshotBlockHash: Hex;
+    destinationChainId: string;
+    standard: number;
   };
   entries: ManifestEntry[];
 };
+type ArtifactDigests = { bundleDigest: Hex };
+type Authorization = {
+  sourceOwner: Address;
+  claimAuthority: Address;
+  destinationRecipient: Address;
+  signature: Hex;
+};
 type ProofBundle = {
   root: Hex;
-  singleProofs: { leafIndex: number; proof: Hex[] }[];
+  singleProofs: { leafIndex: string; proof: Hex[] }[];
   ownerMultiProofs: {
-    sourceOwner: Address;
-    leafIndices: number[];
+    claimAuthority: Address;
+    leafIndices: string[];
     proof: Hex[];
     proofFlags: boolean[];
   }[];
@@ -118,6 +131,13 @@ async function write(
 ): Promise<void> {
   const hash = await client.writeContract(parameters);
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    await publicClient.call({
+      account: parameters.account as Address,
+      to: parameters.address as Address,
+      data: encodeFunctionData(parameters as Parameters<typeof encodeFunctionData>[0]),
+    });
+  }
   assert.equal(receipt.status, "success");
 }
 
@@ -126,9 +146,21 @@ function snapshot(
   contract: Address,
   block: bigint,
   migrationId: Hex,
-): { manifest: Manifest; proofs: ProofBundle } {
+  authorization?: Authorization,
+): { manifest: Manifest; proofs: ProofBundle; artifactDigest: Hex; bundle: string } {
   const output = join(state, standard);
   mkdirSync(output, { recursive: true });
+  const authorizationPath = join(output, "authorizations.json");
+  if (authorization) {
+    writeFileSync(
+      authorizationPath,
+      `${JSON.stringify({
+        format: "evm-migration-authorizations-v1",
+        authorizations: [authorization],
+      }, null, 2)}\n`,
+    );
+  }
+  const authorizationArgs = authorization ? ["--authorization-file", authorizationPath] : [];
   execFileSync(
     cargo,
     [
@@ -148,6 +180,8 @@ function snapshot(
       block.toString(),
       "--migration-id",
       migrationId,
+      "--destination-chain-id",
+      destinationChain.id.toString(),
       "--output",
       output,
       "--chunk-size",
@@ -158,86 +192,157 @@ function snapshot(
       "4",
       "--confirmations",
       "0",
+      ...authorizationArgs,
     ],
     { cwd: root, env: process.env, stdio: "inherit" },
   );
-  return {
-    manifest: JSON.parse(readFileSync(join(output, "manifest.json"), "utf8")) as Manifest,
-    proofs: JSON.parse(readFileSync(join(output, "proofs.json"), "utf8")) as ProofBundle,
+  const current = JSON.parse(readFileSync(join(output, "current.json"), "utf8")) as {
+    path: string;
   };
+  const bundle = join(output, current.path);
+  return {
+    manifest: JSON.parse(readFileSync(join(bundle, "manifest.json"), "utf8")) as Manifest,
+    proofs: JSON.parse(readFileSync(join(bundle, "proofs.json"), "utf8")) as ProofBundle,
+    artifactDigest: (JSON.parse(
+      readFileSync(join(bundle, "artifact-digests.json"), "utf8"),
+    ) as ArtifactDigests).bundleDigest,
+    bundle,
+  };
+}
+
+async function authorizeSourceWallet(
+  sourceOwner: Address,
+  sourceContract: Address,
+  snapshotBlock: bigint,
+  sourceBlockHash: Hex,
+  migrationId: Hex,
+): Promise<Authorization> {
+  const signature = await wallet(sourceRpc, sourceChain, carol).signTypedData({
+    account: carol,
+    domain: {
+      name: "EVM Migration Snapshot Authorization",
+      version: "1",
+      chainId: sourceChain.id,
+      verifyingContract: sourceContract,
+    },
+    types: {
+      MigrationAuthorization: [
+        { name: "migrationId", type: "bytes32" },
+        { name: "sourceChainId", type: "uint256" },
+        { name: "sourceContract", type: "address" },
+        { name: "snapshotBlock", type: "uint256" },
+        { name: "sourceBlockHash", type: "bytes32" },
+        { name: "destinationChainId", type: "uint256" },
+        { name: "claimAuthority", type: "address" },
+        { name: "destinationRecipient", type: "address" },
+      ],
+    },
+    primaryType: "MigrationAuthorization",
+    message: {
+      migrationId,
+      sourceChainId: BigInt(sourceChain.id),
+      sourceContract,
+      snapshotBlock,
+      sourceBlockHash,
+      destinationChainId: BigInt(destinationChain.id),
+      claimAuthority: carol,
+      destinationRecipient: carol,
+    },
+  });
+  return { sourceOwner, claimAuthority: carol, destinationRecipient: carol, signature };
 }
 
 function claimData(entry: ManifestEntry) {
   return {
-    standard: entry.standard,
     tokenId: BigInt(entry.tokenId),
     amount: BigInt(entry.amount),
     sourceOwner: entry.sourceOwner,
-    recipient: entry.destinationRecipient,
+    claimAuthority: entry.claimAuthority,
+    destinationRecipient: entry.destinationRecipient,
     leafIndex: BigInt(entry.leafIndex),
   };
 }
 
-async function deployCampaign(snapshotData: { manifest: Manifest; proofs: ProofBundle }) {
+async function deployCampaign(snapshotData: {
+  manifest: Manifest;
+  proofs: ProofBundle;
+  artifactDigest: Hex;
+}) {
   const token721Artifact = artifact("MigratedERC721.sol/MigratedERC721.json");
   const token1155Artifact = artifact("MigratedERC1155.sol/MigratedERC1155.json");
-  const claimArtifact = artifact("MigrationClaim.sol/MigrationClaim.json");
-  const token721 = await deploy(destinationWallet, destinationPublic, token721Artifact, [
-    "Migrated Demo Relics",
-    "mRELIC",
-    "ipfs://migrated-relics/",
-    deployer,
-  ]);
-  const token1155 = await deploy(destinationWallet, destinationPublic, token1155Artifact, [
-    "ipfs://migrated-relics/{id}.json",
-    deployer,
-  ]);
+  const standard = snapshotData.manifest.campaign.standard;
+  const claimArtifact = artifact(
+    standard === 1
+      ? "ERC721MigrationClaim.sol/ERC721MigrationClaim.json"
+      : "ERC1155MigrationClaim.sol/ERC1155MigrationClaim.json",
+  );
+  const tokenArtifact = standard === 1 ? token721Artifact : token1155Artifact;
+  const token = await deploy(
+    destinationWallet,
+    destinationPublic,
+    tokenArtifact,
+    standard === 1
+      ? ["Migrated Demo Relics", "mRELIC", "ipfs://migrated-relics/", deployer]
+      : ["ipfs://migrated-relics/{id}.json", deployer],
+  );
   const latest = await destinationPublic.getBlock();
   const claim = await deploy(destinationWallet, destinationPublic, claimArtifact, [
     snapshotData.manifest.campaign.migrationId,
     BigInt(snapshotData.manifest.campaign.sourceChainId),
     snapshotData.manifest.campaign.sourceContract,
     BigInt(snapshotData.manifest.campaign.snapshotBlock),
-    token721,
-    token1155,
-    Number(latest.timestamp - 1n),
+    snapshotData.manifest.campaign.snapshotBlockHash,
+    BigInt(snapshotData.manifest.campaign.destinationChainId),
+    token,
+    Number(latest.timestamp + 1n),
     Number(latest.timestamp + 86_400n),
     deployer,
   ]);
-  for (const [address, abi] of [
-    [token721, token721Artifact.abi],
-    [token1155, token1155Artifact.abi],
-  ] as const) {
-    await write(destinationWallet, destinationPublic, {
-      address,
-      abi,
-      functionName: "setMinter",
-      args: [claim],
-      account: deployer,
-      chain: destinationChain,
-    });
-  }
+  await write(destinationWallet, destinationPublic, {
+    address: token,
+    abi: tokenArtifact.abi,
+    functionName: "setMinter",
+    args: [claim],
+    account: deployer,
+    chain: destinationChain,
+  });
   await write(destinationWallet, destinationPublic, {
     address: claim,
     abi: claimArtifact.abi,
     functionName: "setRoot",
-    args: [snapshotData.proofs.root, 1],
+    args: [snapshotData.proofs.root, snapshotData.artifactDigest, 1],
     account: deployer,
     chain: destinationChain,
   });
-  return { claim, claimArtifact, token721, token721Artifact, token1155, token1155Artifact };
+  for (const entry of snapshotData.manifest.entries) {
+    const onchainLeaf = await destinationPublic.readContract({
+      address: claim,
+      abi: claimArtifact.abi,
+      functionName: "hashLeaf",
+      args: [claimData(entry)],
+    });
+    assert.equal(onchainLeaf, entry.leafHash, `leaf ${entry.leafIndex} differs across Rust/Solidity`);
+  }
+  await destinationPublic.request({
+    method: "evm_setNextBlockTimestamp",
+    params: [toHex(latest.timestamp + 2n)],
+  } as never);
+  await destinationPublic.request({ method: "evm_mine", params: [] } as never);
+  return { claim, claimArtifact, token, tokenArtifact };
 }
 
 async function main() {
   const source721Artifact = artifact("DemoRelics721.sol/DemoRelics721.json");
   const source1155Artifact = artifact("DemoRelics1155.sol/DemoRelics1155.json");
+  const sourceWalletArtifact = artifact("DemoSourceWallet.sol/DemoSourceWallet.json");
+  const sourceOnlyWallet = await deploy(sourceWallet, sourcePublic, sourceWalletArtifact, [carol]);
   const source721 = await deploy(sourceWallet, sourcePublic, source721Artifact, [deployer]);
   const source1155 = await deploy(sourceWallet, sourcePublic, source1155Artifact, [deployer]);
   await write(sourceWallet, sourcePublic, {
     address: source721,
     abi: source721Artifact.abi,
     functionName: "seed",
-    args: [[alice, alice, bob, carol]],
+    args: [[alice, alice, bob, sourceOnlyWallet]],
     account: deployer,
     chain: sourceChain,
   });
@@ -246,7 +351,7 @@ async function main() {
     abi: source1155Artifact.abi,
     functionName: "seed",
     args: [
-      [alice, bob, bob, carol],
+      [alice, bob, bob, sourceOnlyWallet],
       [7n, 7n, 8n, 9n],
       [3n, 5n, 2n, 11n],
     ],
@@ -254,22 +359,39 @@ async function main() {
     chain: sourceChain,
   });
   const snapshotBlock = await sourcePublic.getBlockNumber();
+  const sourceBoundary = await sourcePublic.getBlock({ blockNumber: snapshotBlock });
+  const migration721 = keccak256(toBytes("sepolia-base-sepolia-erc721-v1"));
+  const migration1155 = keccak256(toBytes("sepolia-base-sepolia-erc1155-v1"));
   const snapshot721 = snapshot(
     "erc721",
     source721,
     snapshotBlock,
-    keccak256(toBytes("sepolia-base-sepolia-erc721-v1")),
+    migration721,
+    await authorizeSourceWallet(
+      sourceOnlyWallet,
+      source721,
+      snapshotBlock,
+      sourceBoundary.hash,
+      migration721,
+    ),
   );
   const snapshot1155 = snapshot(
     "erc1155",
     source1155,
     snapshotBlock,
-    keccak256(toBytes("sepolia-base-sepolia-erc1155-v1")),
+    migration1155,
+    await authorizeSourceWallet(
+      sourceOnlyWallet,
+      source1155,
+      snapshotBlock,
+      sourceBoundary.hash,
+      migration1155,
+    ),
   );
 
   const campaign721 = await deployCampaign(snapshot721);
   const aliceProof = snapshot721.proofs.ownerMultiProofs.find(
-    (item) => item.sourceOwner.toLowerCase() === alice.toLowerCase(),
+    (item) => item.claimAuthority.toLowerCase() === alice.toLowerCase(),
   );
   assert(aliceProof, "missing Alice ERC-721 multiproof");
   const aliceEntries = aliceProof.leafIndices.map((index) => {
@@ -287,13 +409,36 @@ async function main() {
   });
   for (const tokenId of [1n, 2n]) {
     const owner = await destinationPublic.readContract({
-      address: campaign721.token721,
-      abi: campaign721.token721Artifact.abi,
+      address: campaign721.token,
+      abi: campaign721.tokenArtifact.abi,
       functionName: "ownerOf",
       args: [tokenId],
     });
     assert.equal((owner as Address).toLowerCase(), alice.toLowerCase());
   }
+  const sourceWalletEntry = snapshot721.manifest.entries.find(
+    (entry) => entry.sourceOwner.toLowerCase() === sourceOnlyWallet.toLowerCase(),
+  );
+  assert(sourceWalletEntry, "missing source-only wallet entry");
+  const sourceWalletProof = snapshot721.proofs.singleProofs.find(
+    (proof) => proof.leafIndex === sourceWalletEntry.leafIndex,
+  );
+  assert(sourceWalletProof, "missing source-only wallet proof");
+  await write(wallet(destinationRpc, destinationChain, carol), destinationPublic, {
+    address: campaign721.claim,
+    abi: campaign721.claimArtifact.abi,
+    functionName: "claim",
+    args: [claimData(sourceWalletEntry), sourceWalletProof.proof],
+    account: carol,
+    chain: destinationChain,
+  });
+  const sourceWalletTokenOwner = await destinationPublic.readContract({
+    address: campaign721.token,
+    abi: campaign721.tokenArtifact.abi,
+    functionName: "ownerOf",
+    args: [4n],
+  });
+  assert.equal((sourceWalletTokenOwner as Address).toLowerCase(), carol.toLowerCase());
 
   const campaign1155 = await deployCampaign(snapshot1155);
   const aliceEntry = snapshot1155.manifest.entries.find(
@@ -326,14 +471,16 @@ async function main() {
     account: bob,
     domain: {
       name: "EVM Migration Claim",
-      version: "1",
+      version: "2",
       chainId: destinationChain.id,
       verifyingContract: campaign1155.claim,
     },
     types: {
       DelegatedClaim: [
         { name: "leafHash", type: "bytes32" },
-        { name: "recipient", type: "address" },
+        { name: "merkleRoot", type: "bytes32" },
+        { name: "rootVersion", type: "uint64" },
+        { name: "destinationRecipient", type: "address" },
         { name: "nonce", type: "uint256" },
         { name: "deadline", type: "uint256" },
       ],
@@ -341,7 +488,9 @@ async function main() {
     primaryType: "DelegatedClaim",
     message: {
       leafHash: bobEntry.leafHash,
-      recipient: bobEntry.destinationRecipient,
+      merkleRoot: snapshot1155.proofs.root,
+      rootVersion: 1n,
+      destinationRecipient: bobEntry.destinationRecipient,
       nonce: 0n,
       deadline: delegatedDeadline,
     },
@@ -357,8 +506,8 @@ async function main() {
 
   for (const entry of [aliceEntry, bobEntry]) {
     const balance = await destinationPublic.readContract({
-      address: campaign1155.token1155,
-      abi: campaign1155.token1155Artifact.abi,
+      address: campaign1155.token,
+      abi: campaign1155.tokenArtifact.abi,
       functionName: "balanceOf",
       args: [entry.destinationRecipient, BigInt(entry.tokenId)],
     });
@@ -367,7 +516,7 @@ async function main() {
       address: campaign1155.claim,
       abi: campaign1155.claimArtifact.abi,
       functionName: "isClaimed",
-      args: [1, BigInt(entry.leafIndex)],
+      args: [BigInt(entry.leafIndex)],
     });
     assert.equal(claimed, true);
   }
@@ -381,11 +530,13 @@ async function main() {
     abi: campaign1155.claimArtifact.abi,
     functionName: "claimedCount",
   });
-  assert.equal(claimed721, 2n);
+  assert.equal(claimed721, 3n);
   assert.equal(claimed1155, 2n);
-  const statusPath = join(state, "erc1155", "status.json");
+  const statusPath = join(snapshot1155.bundle, "status.json");
   const status = JSON.parse(readFileSync(statusPath, "utf8")) as Record<string, unknown>;
-  status.claimsCompleted = Number(claimed1155);
+  status.environment = "local-e2e";
+  status.live = false;
+  status.claimsCompleted = claimed1155.toString();
   status.lastVerifiedCommit = process.env.GITHUB_SHA ?? "local-e2e";
   writeFileSync(statusPath, `${JSON.stringify(status, null, 2)}\n`);
   writeFileSync(
@@ -397,7 +548,8 @@ async function main() {
         chainId: destinationChain.id,
         account: bob,
         claim: campaign1155.claim,
-        migratedERC1155: campaign1155.token1155,
+        migratedERC1155: campaign1155.token,
+        artifactBundle: snapshot1155.bundle,
       },
       null,
       2,

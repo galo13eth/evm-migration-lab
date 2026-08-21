@@ -1,0 +1,16 @@
+{
+  "format": "evm-migration-artifact-digests-v1",
+  "files": {
+    "manifest.json": "0xfac7886c3ad7ed73343bb0ef02f5f5468e5c9906421c56e4f2f0eb84579e44ac",
+    "proofs.json": "0x91f0855f010534df7ee18cfaf6926d654a297a13381aa810f3640a92a2a6ca33",
+    "reconciliation.json": "0xd322e3597eb7595ad8c6a9d93d4067a20ac656decf73685329ac3ce18ee10493",
+    "reconciliation.md": "0xaa9c4d82511b6479b1044149a8a01d2fce280872bbc10a6692d5a2149e3beee0",
+    "root.txt": "0xd9be8d2555f0add37b06fe21640bf45fd274298aac17211391d434bfd9a16266",
+    "summary.md": "0x7149257ade5d9a82e4967bdb9acc69f0745427e57071a5d7ece6d729c7dc6c28"
+  },
+  "bundleDigest": "0x4739af2706fab36c1a0380566d89c3e41014c8fceaf7299c2d0144b925ca8408",
+  "cliVersion": "0.1.0",
+  "verifiedCommit": "local",
+  "sourceBlock": "5",
+  "sourceBlockHash": "0xbab818293d3924f32d9ded41f2747c4829cbc68b636abb03565993826b9a289b"
+}

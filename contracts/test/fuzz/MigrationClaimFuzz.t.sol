@@ -3,35 +3,33 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 
-import { MigrationClaim } from "../../src/MigrationClaim.sol";
+import { ERC1155MigrationClaim } from "../../src/ERC1155MigrationClaim.sol";
 import { IMigrationClaim } from "../../src/interfaces/IMigrationClaim.sol";
-import { MigratedERC721 } from "../../src/tokens/MigratedERC721.sol";
 import { MigratedERC1155 } from "../../src/tokens/MigratedERC1155.sol";
 
 contract MigrationClaimFuzzTest is Test {
-    MigrationClaim private claimContract;
+    ERC1155MigrationClaim private claimContract;
     IMigrationClaim.ClaimData private validClaim;
     bytes32[] private emptyProof;
     address private owner = makeAddr("owner");
 
     function setUp() public {
-        MigratedERC721 token721 = new MigratedERC721("Migrated", "MIG", "", address(this));
         MigratedERC1155 token1155 = new MigratedERC1155("", address(this));
-        claimContract = new MigrationClaim(
+        claimContract = new ERC1155MigrationClaim(
             keccak256("fuzz"),
             1,
             makeAddr("source"),
             100,
-            address(token721),
+            keccak256("source-block"),
+            block.chainid,
             address(token1155),
-            1,
+            2,
             type(uint64).max,
             address(this)
         );
-        token721.setMinter(address(claimContract));
         token1155.setMinter(address(claimContract));
-        validClaim = IMigrationClaim.ClaimData(2, 7, 1, owner, owner, 0);
-        claimContract.setRoot(claimContract.hashLeaf(validClaim), 1);
+        validClaim = IMigrationClaim.ClaimData(7, 1, owner, owner, owner, 0);
+        claimContract.setRoot(claimContract.hashLeaf(validClaim), keccak256("artifact"), 1);
         vm.warp(2);
     }
 

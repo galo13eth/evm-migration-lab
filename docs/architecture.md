@@ -16,7 +16,7 @@ flowchart LR
 
 ## Campaign boundary
 
-One `MigrationClaim` represents one source contract and one token standard at one snapshot block. The Rust CLI likewise processes one source contract/standard per invocation. A collection with both standards uses two campaigns. This keeps log decoding, reconciliation, manifest review, and root rotation independently auditable.
+One typed claim contract represents one source contract and one token standard at one snapshot block. `ERC721MigrationClaim` and `ERC1155MigrationClaim` each hold only one destination token and one mint path. The Rust CLI likewise processes one source contract/standard per invocation. A collection with both standards uses two campaigns.
 
 The contract makes these campaign values immutable:
 
@@ -24,7 +24,9 @@ The contract makes these campaign values immutable:
 - `sourceChainId`
 - `sourceContract`
 - `snapshotBlock`
-- destination ERC-721 and ERC-1155 token addresses
+- `sourceBlockHash`
+- `destinationChainId`
+- one destination token address and token standard
 - `claimStart` and `claimDeadline`
 
 ## Leaf encoding
@@ -37,30 +39,33 @@ keccak256(bytes.concat(keccak256(abi.encode(
   uint256 sourceChainId,
   address sourceContract,
   uint256 snapshotBlock,
+  bytes32 sourceBlockHash,
+  uint256 destinationChainId,
   uint8 standard,
   uint256 tokenId,
   uint256 amount,
   address sourceOwner,
+  address claimAuthority,
   address destinationRecipient,
   uint256 leafIndex
 ))))
 ```
 
-The destination recipient is fixed in the reviewed manifest; callers cannot redirect a claim. `leafIndex` is the bitmap key and is included in the commitment.
+Historical ownership, destination authority, and destination recipient are separate commitments. EOAs normally use the same address for all three. A source-only smart wallet signs a source-chain authorization that the CLI validates at the snapshot block before committing a destination authority. `leafIndex` is the global bitmap key.
 
 ## Contract state and calls
 
-Claims are stored as `mapping(uint64 => BitMaps.BitMap)`, keyed first by root version. `claimedCount()` reports the current version and `isClaimed(version,index)` supports historical reconciliation. A root update must strictly increase the version and starts a fresh bitmap namespace; this is powerful trusted administration, not a recovery-free upgrade.
+Claims use one global `BitMaps.BitMap`; `claimedCount()` is cumulative and `isClaimed(index)` cannot reset across a correction. Root versions remain observable, but `setRoot` works only before `claimStart`, before any claim, and only for a changed root with a new artifact digest. The root is frozen at launch.
 
-The claim contract follows checks-effects-interactions and uses `nonReentrant`. State is marked before the only external interactions: mint receiver callbacks and ERC-1271 signature validation. Destination tokens permanently lock their minter to the campaign after deployment.
+The claim contract uses `nonReentrant`. Signature validation occurs before nonce/bitmap mutation; claim state is then marked before token minting. ERC-721 uses `_mint` to reproduce historical contract ownership even when a recipient lacks `ERC721Receiver`. Destination tokens permanently lock their minter and can permanently freeze metadata.
 
-Direct and batch claims require every `sourceOwner` to equal `msg.sender`. Delegated claims use OpenZeppelin `SignatureChecker`, covering EOAs and ERC-1271 accounts, with this EIP-712 payload:
+Direct and batch claims require every `claimAuthority` to equal `msg.sender`. Delegated claims use OpenZeppelin `SignatureChecker`, covering EOAs and destination-deployed ERC-1271 accounts, with this EIP-712 payload:
 
 ```text
-DelegatedClaim(bytes32 leafHash,address recipient,uint256 nonce,uint256 deadline)
+DelegatedClaim(bytes32 leafHash,bytes32 merkleRoot,uint64 rootVersion,address destinationRecipient,uint256 nonce,uint256 deadline)
 ```
 
-The EIP-712 domain is `EVM Migration Claim`, version `1`, destination chain ID, and the claim contract address. The leaf additionally binds the source domain and campaign.
+The EIP-712 domain is `EVM Migration Claim`, version `2`, destination chain ID, and the claim contract address. Binding both root and version invalidates unused signatures when a pre-launch correction occurs.
 
 ## Snapshot pipeline
 
@@ -68,12 +73,12 @@ The Rust CLI uses Alloy to fetch logs and historical reads. It splits the reques
 
 Transfer events are ordered by block, transaction, log, and batch sub-index before state reconstruction. Holdings are canonically sorted before leaf indices are assigned. Serde pretty JSON with a trailing newline makes repeated output byte-stable. `merkrs` supplies OpenZeppelin-compatible roots, single proofs, and owner multiproofs.
 
-Before publishing, the CLI reads the snapshot block hash again and samples `ownerOf` or `balanceOf` at that exact block. A changed boundary or reconciliation mismatch is a hard failure.
+Before publishing, the CLI reads the snapshot block hash again, samples `ownerOf` or `balanceOf` at that exact block, and checks the boundary once more after those historical calls. A changed boundary or sample mismatch is a hard failure. Files are staged and atomically published under their bundle digest with per-file Keccak digests and a final `READY` marker.
 
 ## Alternatives rejected
 
 - A cross-chain messaging bridge: wrong trust and operating model for a one-time state migration.
 - One combined multi-contract manifest: larger review and failure blast radius.
 - Caller-selected recipients: easier UX, but weakens reviewability and enables signature redirection mistakes.
-- Custom Merkle code: unnecessary security surface; use compatible audited libraries on both sides.
+- Custom Merkle construction: unnecessary security surface; `merkrs` and OpenZeppelin are backed by cross-language differential checks rather than an unsupported audit claim.
 - A hosted indexing backend: static artifacts plus destination reads are sufficient for the reference UI.

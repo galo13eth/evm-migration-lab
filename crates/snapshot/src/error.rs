@@ -20,6 +20,8 @@ pub enum SnapshotError {
     Reconstruction(String),
     #[error("sampled on-chain state disagrees with the reconstruction")]
     Reconciliation,
+    #[error("migration authorization failed: {0}")]
+    Authorization(String),
     #[error("Merkle tree failed: {0}")]
     Merkle(String),
     #[error("checkpoint parameters do not match this run: {0}")]
@@ -36,4 +38,12 @@ pub enum SnapshotError {
         #[source]
         source: serde_json::Error,
     },
+}
+
+pub(crate) fn rpc_message(rpc_url: &str, message: &str) -> String {
+    message.replace(rpc_url, "<rpc-url>")
+}
+
+pub(crate) fn rpc_error(rpc_url: &str, error: impl ToString) -> SnapshotError {
+    SnapshotError::Rpc(rpc_message(rpc_url, &error.to_string()))
 }

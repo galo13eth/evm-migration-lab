@@ -37,7 +37,7 @@ contract DeploySource is Script {
         amounts[2] = 2;
         amounts[3] = 11;
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         relics721 = new DemoRelics721(deployer);
         relics1155 = new DemoRelics1155(deployer);
         relics721.seed(owners721);
