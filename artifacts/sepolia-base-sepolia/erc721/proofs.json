@@ -1,0 +1,77 @@
+{
+  "root": "0x7f4f4d5e7dc5243fbbe7ec9ea390abd3aee3c60b1841f3017ccbaddad44217eb",
+  "singleProofs": [
+    {
+      "leafIndex": "0",
+      "proof": [
+        "0x9b6b31f2ae9dca762f6be9944f54138f0842052f9fde83f7438d5bd90de419cd",
+        "0x96adb11c9834e7d17d83d6548ec0901935b9d12188c28e10ca460b22d9e03d58"
+      ]
+    },
+    {
+      "leafIndex": "1",
+      "proof": [
+        "0x6480ae1ff66e65393d98280d6780945da4dd79549c27dcab427f482eef6385c3",
+        "0x96adb11c9834e7d17d83d6548ec0901935b9d12188c28e10ca460b22d9e03d58"
+      ]
+    },
+    {
+      "leafIndex": "2",
+      "proof": [
+        "0xf274336d22aa7d606de5eef6a078d320026ecfc3046dc00ce9756b52e1a63b5f",
+        "0x0ad80e18bfb7f1e7219f429e1f8d1c2f68c42a57e2d1e44ea1aba628982aa15b"
+      ]
+    },
+    {
+      "leafIndex": "3",
+      "proof": [
+        "0xe018571d0e3fe0b5a53702da3f44f85e27c294dcc2ce0bd869ac82de29507588",
+        "0x0ad80e18bfb7f1e7219f429e1f8d1c2f68c42a57e2d1e44ea1aba628982aa15b"
+      ]
+    }
+  ],
+  "ownerMultiProofs": [
+    {
+      "claimAuthority": "0x0d2848a72fdd385af3fdac11b9beae8e7cb3ee90",
+      "leafIndices": [
+        "2"
+      ],
+      "proof": [
+        "0xf274336d22aa7d606de5eef6a078d320026ecfc3046dc00ce9756b52e1a63b5f",
+        "0x0ad80e18bfb7f1e7219f429e1f8d1c2f68c42a57e2d1e44ea1aba628982aa15b"
+      ],
+      "proofFlags": [
+        false,
+        false
+      ]
+    },
+    {
+      "claimAuthority": "0x2086ade4e42aa0e447e73e8fdc872f84334d21cf",
+      "leafIndices": [
+        "3"
+      ],
+      "proof": [
+        "0xe018571d0e3fe0b5a53702da3f44f85e27c294dcc2ce0bd869ac82de29507588",
+        "0x0ad80e18bfb7f1e7219f429e1f8d1c2f68c42a57e2d1e44ea1aba628982aa15b"
+      ],
+      "proofFlags": [
+        false,
+        false
+      ]
+    },
+    {
+      "claimAuthority": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
+      "leafIndices": [
+        "0",
+        "1"
+      ],
+      "proof": [
+        "0x96adb11c9834e7d17d83d6548ec0901935b9d12188c28e10ca460b22d9e03d58"
+      ],
+      "proofFlags": [
+        true,
+        false
+      ]
+    }
+  ]
+}

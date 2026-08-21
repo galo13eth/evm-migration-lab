@@ -1,14 +1,14 @@
 {
   "format": "evm-migration-artifact-digests-v1",
   "files": {
-    "manifest.json": "0xe56a2052a2086f33e725fd7dafffc14eb7952b77f778310df0f2084c58df09e0",
-    "proofs.json": "0xb8647cb6bbc8c8b31d48caffac9ca64b20d541a4f5ecc9872f7a37f997cae103",
+    "manifest.json": "0x3508538a7c9e51ad964c42423a81b2ada0846b03c0009c79773210dc2368cf56",
+    "proofs.json": "0xdf335e99232040a653b282c61ad1a90ab82a5eb9a748886599fe180f7c505c8d",
     "reconciliation.json": "0xed3caaa6f0010c091e5eb57a3b6d7f3355f609b8d96e5f5f5eab4cf93f666f08",
     "reconciliation.md": "0xd606b93d78a0bac814af43922b6473a457aa53549501dc68b8dc18679f87161e",
-    "root.txt": "0xdf2d63be9ebf4c98375e5da23c9315ff7a19d0cfaa5c4ed1bcd4cfb6eb8b6c7c",
-    "summary.md": "0x03f6cc28d649ff559bbf324226c21048c38efba589d0f5667c804a65fcf80370"
+    "root.txt": "0x6f963788743835f906674b2b9babe6b8d007cfc0d448880a2c799be2335916d3",
+    "summary.md": "0x9b0af413e60b438043aa54fab89e60b17bc5526031b5f5c3d94f3260cb86628e"
   },
-  "bundleDigest": "0x969241e6971267703281ff4bc06a492b0b92bc3a801f0dba660b788e49413e86",
+  "bundleDigest": "0x3544c92128a3797e940c506cdc0434871523fe5a5e28a30938f86bdd9b7298c6",
   "cliVersion": "0.1.0",
   "verifiedCommit": "70905f0ce48a1ad9ddae18d1938f81872cb305c8",
   "sourceBlock": "11533768",

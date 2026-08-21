@@ -1,0 +1,17 @@
+{
+  "format": "evm-migration-authorizations-v1",
+  "authorizations": [
+    {
+      "sourceOwner": "0xAA449Fb72Fc8B4989acB5287787660Af5d19C5E8",
+      "claimAuthority": "0x2086aDE4E42AA0e447e73e8Fdc872F84334D21Cf",
+      "destinationRecipient": "0x2086aDE4E42AA0e447e73e8Fdc872F84334D21Cf",
+      "signature": "0xdb32fb6ac413c01a017bfd0f2c8389f8866809ede7855ba3d71189ac7b8e97ad2a74a89f8a065c62db240d74aa4547282a670af376ac801f66c4cf00bad8e27a1b"
+    },
+    {
+      "sourceOwner": "0xC306E2b6b5d46a1C0Daa552aaF84E3292EdE854E",
+      "claimAuthority": "0x0d2848a72fdd385aF3fdaC11b9bEaE8E7cb3EE90",
+      "destinationRecipient": "0xC306E2b6b5d46a1C0Daa552aaF84E3292EdE854E",
+      "signature": "0x57593d921fc81d66657f3323c1824d5ad19263387c05392da81575d99138af213154fe2a43c64765e0be7784173cadaa3a262219512fbad6f1a07401a6067e9d1c"
+    }
+  ]
+}

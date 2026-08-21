@@ -1,13 +1,13 @@
 {
-  "environment": "local-e2e",
-  "chainId": "31338",
-  "live": false,
-  "generatedAt": "1787279368",
-  "snapshotBlock": "5",
-  "snapshotBlockHash": "0xbab818293d3924f32d9ded41f2747c4829cbc68b636abb03565993826b9a289b",
+  "environment": "base-sepolia",
+  "chainId": "84532",
+  "live": true,
+  "generatedAt": "1787292636",
+  "snapshotBlock": "11533768",
+  "snapshotBlockHash": "0xa6472000959ac4f2d2632e418405d3b6dbc8ef3b003683c6c5b1bf2d2fc3ff2c",
   "manifestEntries": "4",
-  "merkleRoot": "0xc71292e79955cefbfddfd8d75f268565561f199c93c63e0dd349125bfda758f7",
-  "claimsCompleted": "2",
+  "merkleRoot": "0xc13128996bc0d6ffe808e4715c61c31baca6c9d06211f41920136d2117c3591f",
+  "claimsCompleted": "4",
   "reconciliationStatus": "sample-consistent",
-  "lastVerifiedCommit": "local-e2e"
+  "lastVerifiedCommit": "70905f0ce48a1ad9ddae18d1938f81872cb305c8"
 }

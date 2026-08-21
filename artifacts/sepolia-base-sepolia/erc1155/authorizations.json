@@ -1,0 +1,11 @@
+{
+  "format": "evm-migration-authorizations-v1",
+  "authorizations": [
+    {
+      "sourceOwner": "0xAA449Fb72Fc8B4989acB5287787660Af5d19C5E8",
+      "claimAuthority": "0x2086aDE4E42AA0e447e73e8Fdc872F84334D21Cf",
+      "destinationRecipient": "0x2086aDE4E42AA0e447e73e8Fdc872F84334D21Cf",
+      "signature": "0xdb32fb6ac413c01a017bfd0f2c8389f8866809ede7855ba3d71189ac7b8e97ad2a74a89f8a065c62db240d74aa4547282a670af376ac801f66c4cf00bad8e27a1b"
+    }
+  ]
+}

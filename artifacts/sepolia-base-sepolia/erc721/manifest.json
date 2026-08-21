@@ -1,13 +1,13 @@
 {
   "format": "evm-migration-manifest-v2",
   "campaign": {
-    "migrationId": "0x9e6797072c21e0e18cd7d68efd74f44aa771528fa210824a853e6aa2ece72546",
+    "migrationId": "0x56be6706d37ad61b7636cdce22fa6f483861618974809025e4391153d8a4ae55",
     "sourceChainId": "11155111",
-    "sourceContract": "0x323643af1a28cf70ffd31f896c083d15ba90cebb",
+    "sourceContract": "0x6c6b4275f4429a2825c3c85a4c4430d23fabf1d9",
     "snapshotBlock": "11533768",
     "snapshotBlockHash": "0xa6472000959ac4f2d2632e418405d3b6dbc8ef3b003683c6c5b1bf2d2fc3ff2c",
     "destinationChainId": "84532",
-    "standard": 2,
+    "standard": 1,
     "finalityPolicy": "confirmations:64",
     "leafEncoding": [
       "bytes32",
@@ -27,44 +27,44 @@
   },
   "entries": [
     {
-      "standard": 2,
-      "tokenId": "7",
-      "amount": "5",
-      "sourceOwner": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
-      "claimAuthority": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
-      "destinationRecipient": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "standard": 1,
+      "tokenId": "1",
+      "amount": "1",
+      "sourceOwner": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
+      "claimAuthority": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
+      "destinationRecipient": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
       "leafIndex": "0",
-      "leafHash": "0xd8f0382fda1de3fb41e49dc073f77089faf7b7604d0faa394c1aaa7f0c1cf6cf"
+      "leafHash": "0x6480ae1ff66e65393d98280d6780945da4dd79549c27dcab427f482eef6385c3"
     },
     {
-      "standard": 2,
-      "tokenId": "7",
-      "amount": "3",
+      "standard": 1,
+      "tokenId": "2",
+      "amount": "1",
       "sourceOwner": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
       "claimAuthority": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
       "destinationRecipient": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
       "leafIndex": "1",
-      "leafHash": "0x1eb3e20b8db819df1bebdf8ada52782323b7f66660df72c7490c68d2b25f14f0"
+      "leafHash": "0x9b6b31f2ae9dca762f6be9944f54138f0842052f9fde83f7438d5bd90de419cd"
     },
     {
-      "standard": 2,
-      "tokenId": "8",
-      "amount": "2",
+      "standard": 1,
+      "tokenId": "3",
+      "amount": "1",
       "sourceOwner": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
-      "claimAuthority": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "claimAuthority": "0x0d2848a72fdd385af3fdac11b9beae8e7cb3ee90",
       "destinationRecipient": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
       "leafIndex": "2",
-      "leafHash": "0x9f95cb1597722741df752c66961868726ffe0d0773d9b2c5d8a379cd87226058"
+      "leafHash": "0xe018571d0e3fe0b5a53702da3f44f85e27c294dcc2ce0bd869ac82de29507588"
     },
     {
-      "standard": 2,
-      "tokenId": "9",
-      "amount": "11",
+      "standard": 1,
+      "tokenId": "4",
+      "amount": "1",
       "sourceOwner": "0xaa449fb72fc8b4989acb5287787660af5d19c5e8",
       "claimAuthority": "0x2086ade4e42aa0e447e73e8fdc872f84334d21cf",
       "destinationRecipient": "0x2086ade4e42aa0e447e73e8fdc872f84334d21cf",
       "leafIndex": "3",
-      "leafHash": "0x007604457779381c85ebff25aad28bc825a9ad49263b8ce2c4f9511d7b295efe"
+      "leafHash": "0xf274336d22aa7d606de5eef6a078d320026ecfc3046dc00ce9756b52e1a63b5f"
     }
   ]
 }
