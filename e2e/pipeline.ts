@@ -358,7 +358,7 @@ async function main() {
     account: deployer,
     chain: sourceChain,
   });
-  const snapshotBlock = await sourcePublic.getBlockNumber();
+  const snapshotBlock = await sourcePublic.getBlockNumber({ cacheTime: 0 });
   const sourceBoundary = await sourcePublic.getBlock({ blockNumber: snapshotBlock });
   const migration721 = keccak256(toBytes("sepolia-base-sepolia-erc721-v1"));
   const migration1155 = keccak256(toBytes("sepolia-base-sepolia-erc1155-v1"));
