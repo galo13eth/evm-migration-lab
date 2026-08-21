@@ -362,6 +362,10 @@ async function main() {
   const sourceBoundary = await sourcePublic.getBlock({ blockNumber: snapshotBlock });
   const migration721 = keccak256(toBytes("sepolia-base-sepolia-erc721-v1"));
   const migration1155 = keccak256(toBytes("sepolia-base-sepolia-erc1155-v1"));
+  assert.throws(
+    () => snapshot("erc721", source721, snapshotBlock, migration721),
+    "source contract owners must provide an explicit migration authorization",
+  );
   const snapshot721 = snapshot(
     "erc721",
     source721,

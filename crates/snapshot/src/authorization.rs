@@ -136,6 +136,16 @@ pub async fn resolve<P: Provider + Clone>(
     let mut resolved = BTreeMap::new();
     for owner in owners.into_iter().collect::<BTreeSet<_>>() {
         let Some(authorization) = supplied.remove(&owner) else {
+            let code = provider
+                .get_code_at(owner)
+                .block_id(BlockId::from(domain.snapshot_block))
+                .await
+                .map_err(|error| rpc_error(rpc_url, error))?;
+            if !code.is_empty() {
+                return Err(SnapshotError::MissingContractOwnerAuthorization(
+                    address_hex(owner),
+                ));
+            }
             resolved.insert(
                 owner,
                 ResolvedAuthorization {

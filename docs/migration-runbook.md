@@ -31,7 +31,7 @@ Interrupted runs resume from `artifacts/erc1155/.snapshot-checkpoint.json`. Do n
 
 Resolve `artifacts/erc1155/current.json`, require the bundle's `READY` marker, then review `manifest.json`, `root.txt`, `proofs.json`, `reconciliation.json`, `summary.md`, and `artifact-digests.json` together. `sample-consistent` describes only the sampled historical reads. Repeat against a second archive RPC and require `./scripts/compare-snapshot-bundles.sh <provider-a-bundle> <provider-b-bundle>` to pass before approval.
 
-If a source contract wallet needs a different destination authority or recipient, provide `--authorization-file`. The file must use `evm-migration-authorizations-v1`; each override signs `MigrationAuthorization` for the exact migration ID, source contract/block/hash, destination chain, authority, and recipient. The CLI validates EOAs locally and ERC-1271 wallets against source-chain code at the snapshot block. Never use an unsigned recipient map.
+Every source contract wallet must provide `--authorization-file`; snapshot generation rejects contract owners without one. The file must use `evm-migration-authorizations-v1`; each override signs `MigrationAuthorization` for the exact migration ID, source contract/block/hash, destination chain, authority, and recipient. The CLI validates EOAs locally and ERC-1271 wallets against source-chain code at the snapshot block. Never use an unsigned recipient map.
 
 ## 3. Sepolia to Base Sepolia rehearsal
 

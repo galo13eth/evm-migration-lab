@@ -22,6 +22,8 @@ pub enum SnapshotError {
     Reconciliation,
     #[error("migration authorization failed: {0}")]
     Authorization(String),
+    #[error("source contract owner {0} requires an explicit migration authorization")]
+    MissingContractOwnerAuthorization(String),
     #[error("Merkle tree failed: {0}")]
     Merkle(String),
     #[error("checkpoint parameters do not match this run: {0}")]
