@@ -95,7 +95,7 @@ All campaign fields are reconstructed from contract immutables. Each campaign ca
 - `claimBatch`: one authority submits an OpenZeppelin-compatible multiproof; foreign-authority leaves revert the entire transaction.
 - `claimDelegated`: any relayer submits a root/version-bound EIP-712 authorization checked through `SignatureChecker`.
 
-An EOA owner needs no mapping. A source-only contract wallet can sign a migration authorization on the source chain; the CLI validates ERC-1271 at the snapshot block and commits its destination authority. Destination delegated claims support EOAs and ERC-1271 accounts deployed and valid on the destination chain.
+An EOA owner needs no mapping. A source contract owner must provide an explicit migration authorization or snapshot generation fails; the CLI validates ERC-1271 at the snapshot block and commits its destination authority. Destination delegated claims support EOAs and ERC-1271 accounts deployed and valid on the destination chain.
 
 Roots may be corrected only before `claimStart` and before any claim. Once launch begins, the root is permanently frozen; a post-launch incident requires a documented redeployment.
 
