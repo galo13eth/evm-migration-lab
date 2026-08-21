@@ -1,0 +1,79 @@
+{
+  "root": "0xe81f4a34ba6ba643ea667aba0538cdd1d382ede769a53548905572e256b1ec8c",
+  "singleProofs": [
+    {
+      "leafIndex": "0",
+      "proof": [
+        "0x007604457779381c85ebff25aad28bc825a9ad49263b8ce2c4f9511d7b295efe",
+        "0x5a941f237eaf05d77f711337ffce5bcd3063396f5926df4104114bd9d799e56d"
+      ]
+    },
+    {
+      "leafIndex": "1",
+      "proof": [
+        "0x35782785044ad7f45598a5e7b8885f149577472c6fb356d30789fb78507e4b06",
+        "0x08667121ec3e4bd427cacb5c430cdf4775c063092a44c5d76f3df4d6aa1baaad"
+      ]
+    },
+    {
+      "leafIndex": "2",
+      "proof": [
+        "0x1eb3e20b8db819df1bebdf8ada52782323b7f66660df72c7490c68d2b25f14f0",
+        "0x08667121ec3e4bd427cacb5c430cdf4775c063092a44c5d76f3df4d6aa1baaad"
+      ]
+    },
+    {
+      "leafIndex": "3",
+      "proof": [
+        "0x0ab9e57dde5ae3e87a1927e75e44c75391426fb4792809698b3809b1df1fdb9c",
+        "0x5a941f237eaf05d77f711337ffce5bcd3063396f5926df4104114bd9d799e56d"
+      ]
+    }
+  ],
+  "ownerMultiProofs": [
+    {
+      "claimAuthority": "0x0d2848a72fdd385af3fdac11b9beae8e7cb3ee90",
+      "leafIndices": [
+        "0",
+        "2"
+      ],
+      "proof": [
+        "0x007604457779381c85ebff25aad28bc825a9ad49263b8ce2c4f9511d7b295efe",
+        "0x1eb3e20b8db819df1bebdf8ada52782323b7f66660df72c7490c68d2b25f14f0"
+      ],
+      "proofFlags": [
+        false,
+        false,
+        true
+      ]
+    },
+    {
+      "claimAuthority": "0x2086ade4e42aa0e447e73e8fdc872f84334d21cf",
+      "leafIndices": [
+        "3"
+      ],
+      "proof": [
+        "0x0ab9e57dde5ae3e87a1927e75e44c75391426fb4792809698b3809b1df1fdb9c",
+        "0x5a941f237eaf05d77f711337ffce5bcd3063396f5926df4104114bd9d799e56d"
+      ],
+      "proofFlags": [
+        false,
+        false
+      ]
+    },
+    {
+      "claimAuthority": "0xd2e2d04a6cc43337452fa57ce78a64b2507cbe89",
+      "leafIndices": [
+        "1"
+      ],
+      "proof": [
+        "0x35782785044ad7f45598a5e7b8885f149577472c6fb356d30789fb78507e4b06",
+        "0x08667121ec3e4bd427cacb5c430cdf4775c063092a44c5d76f3df4d6aa1baaad"
+      ],
+      "proofFlags": [
+        false,
+        false
+      ]
+    }
+  ]
+}

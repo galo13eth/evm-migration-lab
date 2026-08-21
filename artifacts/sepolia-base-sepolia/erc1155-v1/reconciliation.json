@@ -1,0 +1,36 @@
+{
+  "snapshotBlock": "11533768",
+  "snapshotBlockHash": "0xa6472000959ac4f2d2632e418405d3b6dbc8ef3b003683c6c5b1bf2d2fc3ff2c",
+  "samples": [
+    {
+      "leafIndex": "0",
+      "expected": "5",
+      "actual": "5",
+      "consistent": true
+    },
+    {
+      "leafIndex": "2",
+      "expected": "2",
+      "actual": "2",
+      "consistent": true
+    },
+    {
+      "leafIndex": "3",
+      "expected": "11",
+      "actual": "11",
+      "consistent": true
+    },
+    {
+      "leafIndex": "1",
+      "expected": "3",
+      "actual": "3",
+      "consistent": true
+    }
+  ],
+  "status": "sample-consistent",
+  "sampledEntries": "4",
+  "manifestEntries": "4",
+  "sampleCoverage": "1.00000000",
+  "sampleSeed": "0xa6472000959ac4f2d2632e418405d3b6dbc8ef3b003683c6c5b1bf2d2fc3ff2c",
+  "providersCompared": 1
+}

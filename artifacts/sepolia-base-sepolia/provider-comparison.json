@@ -1,0 +1,28 @@
+{
+  "format": "evm-migration-provider-comparison-v1",
+  "sourceChainId": "11155111",
+  "snapshotBlock": "11533768",
+  "snapshotBlockHash": "0xa6472000959ac4f2d2632e418405d3b6dbc8ef3b003683c6c5b1bf2d2fc3ff2c",
+  "providersCompared": 2,
+  "distinctEndpoints": true,
+  "comparedFiles": [
+    "manifest.json",
+    "proofs.json",
+    "root.txt",
+    "reconciliation.json",
+    "artifact-digests.json"
+  ],
+  "campaigns": [
+    {
+      "standard": "erc721",
+      "result": "byte-identical",
+      "bundleDigest": "0x786dcd69611232c1c2b1e356987d7edca3ebd1b1959a516876b5ebace09a96c2"
+    },
+    {
+      "standard": "erc1155",
+      "rootVersion": "2",
+      "result": "byte-identical",
+      "bundleDigest": "0x969241e6971267703281ff4bc06a492b0b92bc3a801f0dba660b788e49413e86"
+    }
+  ]
+}

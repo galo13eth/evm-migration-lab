@@ -1,0 +1,39 @@
+{
+  "format": "evm-migration-root-correction-v1",
+  "campaign": "erc1155",
+  "reason": "Before launch and with zero claims, restore the EOA default for Owner B so its two allocations can exercise a real multiproof batch. Destination ERC-1271 authority remains covered by the ERC-721 campaign.",
+  "claimedBeforeCorrection": "0",
+  "previous": {
+    "version": "1",
+    "merkleRoot": "0xe81f4a34ba6ba643ea667aba0538cdd1d382ede769a53548905572e256b1ec8c",
+    "artifactDigest": "0x3544c92128a3797e940c506cdc0434871523fe5a5e28a30938f86bdd9b7298c6",
+    "artifacts": "../erc1155-v1"
+  },
+  "current": {
+    "version": "2",
+    "merkleRoot": "0xc13128996bc0d6ffe808e4715c61c31baca6c9d06211f41920136d2117c3591f",
+    "artifactDigest": "0x969241e6971267703281ff4bc06a492b0b92bc3a801f0dba660b788e49413e86",
+    "artifacts": "."
+  },
+  "changedEntries": [
+    {
+      "leafIndex": "0",
+      "sourceOwner": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "previousClaimAuthority": "0x0d2848a72fdd385af3fdac11b9beae8e7cb3ee90",
+      "currentClaimAuthority": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "destinationRecipient": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "previousLeafHash": "0x0ab9e57dde5ae3e87a1927e75e44c75391426fb4792809698b3809b1df1fdb9c",
+      "currentLeafHash": "0xd8f0382fda1de3fb41e49dc073f77089faf7b7604d0faa394c1aaa7f0c1cf6cf"
+    },
+    {
+      "leafIndex": "2",
+      "sourceOwner": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "previousClaimAuthority": "0x0d2848a72fdd385af3fdac11b9beae8e7cb3ee90",
+      "currentClaimAuthority": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "destinationRecipient": "0xc306e2b6b5d46a1c0daa552aaf84e3292ede854e",
+      "previousLeafHash": "0x35782785044ad7f45598a5e7b8885f149577472c6fb356d30789fb78507e4b06",
+      "currentLeafHash": "0x9f95cb1597722741df752c66961868726ffe0d0773d9b2c5d8a379cd87226058"
+    }
+  ],
+  "safeTransaction": "0xa577d320022fe581c6bda8ea7095acf9b9c63b069bb3a9f89559d5f637da2270"
+}
